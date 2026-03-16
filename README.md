@@ -1,136 +1,96 @@
 # Ghost
 
-一款 Android 悬浮球应用，专为观看视频设计。透明遮罩层防止误触，无障碍服务自动跳过 YouTube 广告。
+在手机上看视频时，防止误触暂停、误点广告、误触屏幕。
 
 ---
 
-## 功能
-
-### 误触保护
-- 启动后在屏幕上叠加一层透明拦截层，屏蔽所有误触操作
-- 悬浮球始终保持在最顶层，长按 1.5 秒解除保护
-- 解锁时震动反馈 + 弹跳动画确认
-
-### 悬浮球
-- 可拖拽至屏幕任意位置，松手自动吸附最近边缘（50% 隐藏）
-- 1.5 秒无操作后自动半隐，触摸后恢复完整展示
-- 点击展开扇形菜单，快速切换「锁定保护」和「跳广告开关」
-
-### 自动跳广告
-- 基于 AccessibilityService 监听 YouTube 界面节点变化
-- 检测到可跳过广告按钮时自动点击（支持多语言按钮文本 + ViewId 双重识别）
-- 可通过悬浮球菜单随时开关，无需重新授权
-
----
-
-## 截图
-
-> 待补充
-
----
-
-## 技术架构
-
-```
-com.xyz.ghost
-├── ui/                     # Activity 层
-│   └── MainActivity        # 权限引导 + 服务开关
-├── overlay/                # 悬浮层核心
-│   ├── OverlayService      # Service 生命周期 + 组件装配（DI 根）
-│   ├── ball/
-│   │   ├── BallController  # 触摸手势 + 状态机 + 编排
-│   │   ├── BallAnimator    # 所有动画：X 位移 / 解锁弹跳 / 小球出入 / 触觉
-│   │   └── BallPositionCalc# 纯位置计算（hiddenX / revealedX / snapSide）
-│   ├── menu/
-│   │   └── MiniMenuController # 扇形小球菜单窗口 + 点击路由
-│   └── protection/
-│       └── ProtectionController # 全屏透明遮罩窗口生命周期
-├── adskip/
-│   └── AdSkipService       # AccessibilityService：YouTube 广告检测 + 点击
-└── util/
-    ├── NotificationHelper  # 前台通知构建
-    └── ScreenUtils         # dpToPx / screenWidth / screenHeight 扩展函数
-```
-
-**关键设计决策**
-
-| 问题 | 方案 |
-|------|------|
-| 解锁计时竞争条件 | 用 `SystemClock.elapsedRealtime()` 时间差替代 `Handler.postDelayed`，消除主线程竞争 |
-| 缩放动画被裁切 | Window 尺寸 = 球体尺寸 + 20dp 四周溢出空间（96dp），保证 1.55x 缩放不越界 |
-| Z-order 保证球在遮罩之上 | 激活保护时：removeView(ball) → addView(overlay) → addView(ball) |
-| 高频 AccessibilityEvent 性能 | 用 `event.source` 做文本预检，仅命中关键词才获取完整节点树 |
-| AdSkipService 无法代码开关 | SharedPreferences 标志位控制是否处理事件，服务常驻无需重新授权 |
-
----
-
-## 构建要求
-
-| 项目 | 要求 |
-|------|------|
-| Android Studio | Hedgehog 或更高 |
-| JDK | 17（不兼容 GraalVM JDK 21） |
-| minSdk | 24（Android 7.0） |
-| compileSdk | 35 |
-
-> **JDK 配置**：如遇 `jlink` 相关构建错误，在 `gradle.properties` 中添加：
-> ```
-> org.gradle.java.home=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
-> ```
-
----
-
-## 安装与使用
-
-### 方式一：ADB 安装
+## 安装
 
 ```bash
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 方式二：Android Studio 直接运行
+---
 
-打开项目 → 连接设备 → Run
+## 首次配置
 
-### 首次配置
+### 第一步：授予悬浮窗权限
 
-1. 打开 Ghost → 点击「启动保护」→ 授予**悬浮窗权限**
-2. 点击「前往授权」→ 在系统无障碍设置中启用 **Ghost**（跳广告功能可选）
+打开 Ghost → 点击「**启动保护**」→ 系统弹出悬浮窗权限页 → 开启 → 返回 App。
 
-### 使用流程
+### 第二步（可选）：开启自动跳广告
+
+主界面点击「**前往授权**」→ 系统无障碍设置 → 找到 Ghost → 开启。
+
+> 跳广告功能仅需授权一次，重启手机后自动恢复，无需重新设置。
+
+---
+
+## 使用
+
+### 启动保护
+
+1. 打开 Ghost → 点击「**启动保护**」
+2. 切换到 YouTube 开始播放
+3. 点击悬浮球 → 展开菜单 → 点击**锁形图标**
+4. 屏幕进入保护状态，误触被拦截
 
 ```
-打开 YouTube → 开始播放
-  → 点击悬浮球展开菜单
-  → 点击「锁定」图标启动误触保护
-  → 长按悬浮球 1.5 秒解除保护
+悬浮球状态说明：
+
+  🛡 盾牌图标 = 未保护（可点击启动）
+  🔒 锁形图标 = 保护中（长按解锁）
 ```
+
+### 解除保护
+
+长按悬浮球 **1.5 秒**，感受到震动后松手即可解除。
+
+> 进度环动画填满 = 可以松手，震动是确认信号。
+
+### 扇形菜单
+
+点击悬浮球（未保护状态）展开两个小球：
+
+| 小球 | 功能 |
+|------|------|
+| 🔒 锁定 | 启动误触保护 |
+| ⏭ 广告 | 开启 / 关闭自动跳广告（绿色 = 已开启）|
+
+### 悬浮球位置
+
+- **拖动**：长按并拖拽到屏幕任意位置
+- **吸边**：松手后自动贴近最近的屏幕边缘
+- **自动收起**：1.5 秒无操作后球体半隐，触摸后恢复
+
+---
+
+## 常见问题
+
+**Q：保护开启后怎么切换回其他 App？**
+保护层不会拦截系统手势（上划回主页、侧滑切换 App），正常使用即可。只有屏幕内容区域的触摸会被拦截。
+
+**Q：悬浮球消失了？**
+悬浮球会自动吸附到屏幕边缘并半隐，往边缘轻触一下即可让它重新显示。
+
+**Q：跳广告不生效？**
+- 检查主界面「自动跳广告」卡片是否显示「已开启」
+- YouTube 部分广告无跳过按钮（5 秒强制观看），此类广告无法跳过
+- YouTube 版本更新后按钮 ID 可能变化，需等待 Ghost 更新适配
+
+**Q：如何完全停止 Ghost？**
+下拉通知栏 → 找到 Ghost 通知 → 点击「停止」；或在主界面点击「停止保护」。
 
 ---
 
 ## 权限说明
 
-| 权限 | 用途 |
+| 权限 | 原因 |
 |------|------|
-| `SYSTEM_ALERT_WINDOW` | 悬浮球 + 透明遮罩层显示 |
-| `FOREGROUND_SERVICE` | 服务后台常驻 |
-| `VIBRATE` | 解锁时触觉反馈 |
-| `POST_NOTIFICATIONS` | 前台服务通知（Android 13+）|
-| `AccessibilityService` | 读取 YouTube 界面节点，自动跳广告 |
+| 悬浮窗 | 显示悬浮球和透明保护层 |
+| 无障碍服务 | 读取 YouTube 界面，识别并点击跳过广告按钮 |
+| 前台服务 | 离开 App 后保持运行 |
+| 震动 | 解锁成功时的触觉反馈 |
 
-> AccessibilityService 在配置文件中声明 `packageNames="com.google.android.youtube"`，仅监听 YouTube 进程，不读取其他应用内容。
-
----
-
-## 开发注意事项
-
-- 不适合上架 Google Play（无障碍服务用途不符合平台政策）
-- 仅供个人使用
-- YouTube 界面更新可能导致跳广告功能失效，需更新 `AdSkipService` 中的按钮文本/ViewId
-
----
-
-## License
-
-MIT
+> 无障碍服务仅监听 YouTube（`com.google.android.youtube`），不读取其他 App 内容。
