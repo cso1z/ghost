@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 根容器 96dp = 56dp 球体 + 20dp 四周溢出空间（供缩放动画使用，不会被裁切） -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="56dp"
-    android:layout_height="56dp">
+    android:layout_width="96dp"
+    android:layout_height="96dp">
 
-    <!-- 长按解锁进度环 -->
+    <!-- 长按解锁进度环，与球同大小、居中 -->
     <View
         android:id="@+id/ball_progress"
         android:layout_width="56dp"
         android:layout_height="56dp"
+        android:layout_gravity="center"
         android:background="@drawable/bg_progress_ring"
         android:alpha="0" />
 
-    <!-- 悬浮球主体 -->
+    <!-- 悬浮球，56dp 居中，四周留 20dp 供动画溢出 -->
     <ImageView
         android:id="@+id/ball_icon"
         android:layout_width="56dp"
         android:layout_height="56dp"
+        android:layout_gravity="center"
         android:padding="14dp"
         android:src="@drawable/ic_shield"
         android:background="@drawable/bg_ball"
