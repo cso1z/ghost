@@ -178,7 +178,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- 操作按钮 -->
+            <!-- 未授权时：前往授权按钮 -->
             <Button
                 android:id="@+id/btnAdSkip"
                 android:layout_width="wrap_content"
@@ -189,7 +189,17 @@
                 android:textSize="12sp"
                 android:paddingHorizontal="14dp"
                 android:stateListAnimator="@null"
+                android:visibility="gone"
                 app:cornerRadius="10dp" />
+
+            <!-- 已授权时：开关 -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchAdSkip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:thumbTint="@color/white"
+                app:trackTint="@color/accent" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

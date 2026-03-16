@@ -62,6 +62,11 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        binding.switchAdSkip.setOnCheckedChangeListener { _, isChecked ->
+            AdSkipService.setAdSkipEnabled(this, isChecked)
+            updateAdSkipUI()
+        }
+
         updateUI(active = OverlayService.isRunning)
         updateAdSkipUI()
     }
@@ -150,24 +155,33 @@ class MainActivity : AppCompatActivity() {
     private fun updateAdSkipUI() {
         val authorized = isAdSkipAuthorized()
         val prefEnabled = AdSkipService.isAdSkipEnabled(this)
-        when {
-            !authorized -> {
-                binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
-                binding.adSkipStatusText.text = getString(R.string.ad_skip_status_off)
-                binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
-                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enable)
+
+        if (!authorized) {
+            // 未授权：显示授权按钮，隐藏开关
+            binding.btnAdSkip.visibility = android.view.View.VISIBLE
+            binding.switchAdSkip.visibility = android.view.View.GONE
+            binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
+            binding.adSkipStatusText.text = getString(R.string.ad_skip_status_off)
+            binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
+        } else {
+            // 已授权：显示开关，隐藏授权按钮
+            binding.btnAdSkip.visibility = android.view.View.GONE
+            binding.switchAdSkip.visibility = android.view.View.VISIBLE
+            // 更新开关状态时先移除监听，避免触发 setOnCheckedChangeListener
+            binding.switchAdSkip.setOnCheckedChangeListener(null)
+            binding.switchAdSkip.isChecked = prefEnabled
+            binding.switchAdSkip.setOnCheckedChangeListener { _, isChecked ->
+                AdSkipService.setAdSkipEnabled(this, isChecked)
+                updateAdSkipUI()
             }
-            prefEnabled -> {
+            if (prefEnabled) {
                 binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_active)
                 binding.adSkipStatusText.text = getString(R.string.ad_skip_status_on)
                 binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_active))
-                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enabled)
-            }
-            else -> {
+            } else {
                 binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
                 binding.adSkipStatusText.text = getString(R.string.ad_skip_status_paused)
                 binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
-                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enabled)
             }
         }
     }
