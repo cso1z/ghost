@@ -9,4 +9,12 @@
     <string name="hint_active">透明保护层已开启，屏幕触摸已被拦截。\n长按右上角锁图标 1.5 秒可解除保护。</string>
     <string name="hint_inactive">点击"启动保护"后，应用将在屏幕上方添加一个透明层，拦截所有误触操作。</string>
     <string name="unlock_hint">长按解锁</string>
+    <string name="protection_card_title">误触保护</string>
+    <string name="ad_skip_card_title">自动跳广告</string>
+    <string name="ad_skip_status_on">已开启 · 监听 YouTube</string>
+    <string name="ad_skip_status_paused">已授权 · 已暂停</string>
+    <string name="ad_skip_status_off">未授权</string>
+    <string name="ad_skip_btn_enable">前往授权</string>
+    <string name="ad_skip_btn_enabled">无障碍设置</string>
+    <string name="accessibility_service_description">监听 YouTube 界面，自动点击跳过广告按钮</string>
 </resources>

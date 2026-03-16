@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小球容器：40dp 视觉球体 + 8dp 四周溢出空间（供缩放动画使用） -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="56dp"
+    android:layout_height="56dp">
+
+    <ImageView
+        android:id="@+id/mini_ball_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center"
+        android:padding="10dp"
+        android:background="@drawable/bg_ball"
+        android:contentDescription="@null"
+        android:focusable="false" />
+
+</FrameLayout>

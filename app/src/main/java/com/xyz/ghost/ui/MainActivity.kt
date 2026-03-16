@@ -1,5 +1,6 @@
-package com.xyz.ghost
+package com.xyz.ghost.ui
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -8,10 +9,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.xyz.ghost.R
+import com.xyz.ghost.adskip.AdSkipService
 import com.xyz.ghost.databinding.ActivityMainBinding
+import com.xyz.ghost.overlay.OverlayService
 
 class MainActivity : AppCompatActivity() {
 
@@ -53,12 +58,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnAdSkip.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+
         updateUI(active = OverlayService.isRunning)
+        updateAdSkipUI()
     }
 
     override fun onResume() {
         super.onResume()
         updateUI(active = OverlayService.isRunning)
+        updateAdSkipUI()
         val filter = IntentFilter(OverlayService.ACTION_STOPPED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(serviceStoppedReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -113,6 +124,13 @@ class MainActivity : AppCompatActivity() {
         updateUI(active = false)
     }
 
+    private fun isAdSkipAuthorized(): Boolean {
+        val am = getSystemService(AccessibilityManager::class.java)
+        return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == packageName &&
+                    it.resolveInfo.serviceInfo.name == AdSkipService::class.java.name }
+    }
+
     private fun updateUI(active: Boolean) {
         if (active) {
             binding.btnToggle.text = getString(R.string.stop_protection)
@@ -126,6 +144,31 @@ class MainActivity : AppCompatActivity() {
             binding.statusText.text = getString(R.string.status_inactive)
             binding.statusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
             binding.hintText.text = getString(R.string.hint_inactive)
+        }
+    }
+
+    private fun updateAdSkipUI() {
+        val authorized = isAdSkipAuthorized()
+        val prefEnabled = AdSkipService.isAdSkipEnabled(this)
+        when {
+            !authorized -> {
+                binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
+                binding.adSkipStatusText.text = getString(R.string.ad_skip_status_off)
+                binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
+                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enable)
+            }
+            prefEnabled -> {
+                binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_active)
+                binding.adSkipStatusText.text = getString(R.string.ad_skip_status_on)
+                binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_active))
+                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enabled)
+            }
+            else -> {
+                binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
+                binding.adSkipStatusText.text = getString(R.string.ad_skip_status_paused)
+                binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
+                binding.btnAdSkip.text = getString(R.string.ad_skip_btn_enabled)
+            }
         }
     }
 }
