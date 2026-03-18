@@ -49,6 +49,10 @@ class AdSkipService : AccessibilityService() {
     private var lastClickMs = 0L
     private val CLICK_COOLDOWN_MS = 2000L
 
+    // 节流：CONTENT_CHANGED 事件太频繁，最多每 500ms 做一次全量扫描
+    private var lastScanMs = 0L
+    private val SCAN_INTERVAL_MS = 500L
+
     override fun onServiceConnected() {
         isRunning = true
         serviceInfo = serviceInfo.apply {
@@ -78,11 +82,24 @@ class AdSkipService : AccessibilityService() {
             return
         }
 
-        // ② 预检：记录事件文本内容
+        // ② 判断是否需要全量扫描
         val needFullScan = when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 Log.d(TAG, "WINDOW_STATE_CHANGED → full scan")
                 true
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                // text 为空时依然需要扫描（跳过按钮出现时 text="" ）
+                // 但 CONTENT_CHANGED 极其频繁，加 500ms 节流
+                val srcText = event.source?.text?.toString() ?: ""
+                val descText = event.contentDescription?.toString() ?: ""
+                val text = srcText.ifEmpty { descText }
+                val textHit = SKIP_TEXTS.any { text.contains(it, ignoreCase = true) }
+                val timeOk = now - lastScanMs >= SCAN_INTERVAL_MS
+                val scan = textHit || timeOk
+                Log.d(TAG, "CONTENT_CHANGED text=\"$text\" textHit=$textHit timeOk=$timeOk → scan=$scan")
+                if (scan) lastScanMs = now
+                scan
             }
             else -> {
                 val srcText = event.source?.text?.toString() ?: ""
