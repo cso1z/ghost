@@ -2,6 +2,7 @@ package com.xyz.ghost.overlay
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
@@ -14,7 +15,6 @@ import com.xyz.ghost.adskip.AdSkipService
 import com.xyz.ghost.overlay.ball.BallController
 import com.xyz.ghost.overlay.ball.BallPositionCalc
 import com.xyz.ghost.overlay.protection.ProtectionController
-import com.xyz.ghost.ui.MainActivity
 import com.xyz.ghost.util.LOG_TAG
 import com.xyz.ghost.util.NotificationHelper
 import com.xyz.ghost.util.dpToPx
@@ -30,10 +30,24 @@ class OverlayService : Service() {
     companion object {
         const val ACTION_STOPPED = "com.xyz.ghost.ACTION_STOPPED"
         const val ACTION_STOP = "com.xyz.ghost.ACTION_STOP"
+        const val ACTION_SHOW_BALL = "com.xyz.ghost.ACTION_SHOW_BALL"
+        const val ACTION_HIDE_BALL = "com.xyz.ghost.ACTION_HIDE_BALL"
+
+        private const val PREFS_NAME = "ghost_prefs"
+        private const val KEY_BALL_ENABLED = "ball_enabled"
 
         @Volatile
         var isRunning = false
             private set
+
+        fun isBallEnabled(context: Context): Boolean =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_BALL_ENABLED, false)
+
+        fun setBallEnabled(context: Context, enabled: Boolean) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_BALL_ENABLED, enabled).apply()
+        }
     }
 
     private val overlayType
@@ -84,11 +98,19 @@ class OverlayService : Service() {
             }
         )
 
-        ballController.show()
+        if (isBallEnabled(this)) ballController.show()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) stopSelf()
+        when (intent?.action) {
+            ACTION_STOP -> {
+                setBallEnabled(this, false)
+                AdSkipService.setAdSkipEnabled(this, false)
+                stopSelf()
+            }
+            ACTION_SHOW_BALL -> if (ballController.ballView == null) ballController.show()
+            ACTION_HIDE_BALL -> if (ballController.ballView != null) ballController.destroy()
+        }
         return START_STICKY
     }
 

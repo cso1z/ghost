@@ -6,6 +6,7 @@ import android.os.Handler
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
@@ -29,7 +30,8 @@ class MiniMenuController(
     private val isAdSkipAuthorized: () -> Boolean,
     private val isAdSkipEnabled: () -> Boolean,
     private val onLockClick: () -> Unit,
-    private val onAdSkipClick: () -> Unit
+    private val onAdSkipClick: () -> Unit,
+    private val onDismiss: () -> Unit = {}
 ) {
     companion object {
         private const val AUTO_DISMISS_MS = 3000L
@@ -41,6 +43,7 @@ class MiniMenuController(
     var isOpen = false
         private set
 
+    private var backdropView: View? = null
     private var miniLockView: View? = null
     private var miniAdView: View? = null
 
@@ -55,6 +58,24 @@ class MiniMenuController(
         if (isOpen) return
         isOpen = true
         Log.d(LOG_TAG, "MiniMenu.show")
+
+        // 全屏透明拦截层：ACTION_DOWN 时直接关闭菜单
+        // 用 ACTION_DOWN（非 onClick）确保手势归属于此窗口，移除后主球不会收到残留事件
+        backdropView = View(context).also { v ->
+            val p = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.TOP or Gravity.START }
+            windowManager.addView(v, p)
+            v.setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_DOWN) hide(animate = true)
+                true
+            }
+        }
 
         val dx = if (snappedToLeft) fanOffsetPx else -fanOffsetPx
 
@@ -87,8 +108,11 @@ class MiniMenuController(
         isOpen = false
         handler.removeCallbacks(dismissRunnable)
         Log.d(LOG_TAG, "MiniMenu.hide animate=$animate")
+        backdropView?.let { try { windowManager.removeView(it) } catch (_: Exception) {} }
+        backdropView = null
         removeView(miniLockView, animate); miniLockView = null
         removeView(miniAdView, animate);   miniAdView   = null
+        onDismiss()
     }
 
     private fun createMiniBall(

@@ -21,7 +21,7 @@ class AdSkipService : AccessibilityService() {
 
         fun isAdSkipEnabled(context: Context): Boolean =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getBoolean(KEY_AD_SKIP_ENABLED, true)
+                .getBoolean(KEY_AD_SKIP_ENABLED, false)
 
         fun setAdSkipEnabled(context: Context, enabled: Boolean) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

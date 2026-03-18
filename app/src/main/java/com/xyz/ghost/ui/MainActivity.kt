@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -26,21 +27,21 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (Settings.canDrawOverlays(this)) {
-            startOverlayService()
+            startOrStopService()
         }
     }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
-        // proceed regardless of result
         requestOverlayPermissionIfNeeded()
     }
 
     private val serviceStoppedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == OverlayService.ACTION_STOPPED) {
-                updateUI(active = false)
+                updateBallUI()
+                updateAdSkipUI()
             }
         }
     }
@@ -50,12 +51,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.btnToggle.setOnClickListener {
+        binding.switchBall.setOnCheckedChangeListener { _, isChecked ->
+            OverlayService.setBallEnabled(this, isChecked)
             if (OverlayService.isRunning) {
-                stopOverlayService()
-            } else {
-                checkNotificationPermissionThenOverlay()
+                val action = if (isChecked) OverlayService.ACTION_SHOW_BALL else OverlayService.ACTION_HIDE_BALL
+                startService(Intent(this, OverlayService::class.java).setAction(action))
             }
+            startOrStopService()
+            updateBallUI()
         }
 
         binding.btnAdSkip.setOnClickListener {
@@ -64,16 +67,18 @@ class MainActivity : AppCompatActivity() {
 
         binding.switchAdSkip.setOnCheckedChangeListener { _, isChecked ->
             AdSkipService.setAdSkipEnabled(this, isChecked)
+            startOrStopService()
             updateAdSkipUI()
         }
 
-        updateUI(active = OverlayService.isRunning)
+        updateBallUI()
         updateAdSkipUI()
+        startOrStopService()
     }
 
     override fun onResume() {
         super.onResume()
-        updateUI(active = OverlayService.isRunning)
+        updateBallUI()
         updateAdSkipUI()
         val filter = IntentFilter(OverlayService.ACTION_STOPPED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -87,6 +92,18 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         unregisterReceiver(serviceStoppedReceiver)
+    }
+
+    // ── 服务启停 ──────────────────────────────────────────────────────
+
+    private fun startOrStopService() {
+        val ballOn = OverlayService.isBallEnabled(this)
+        val adSkipOn = isAdSkipAuthorized() && AdSkipService.isAdSkipEnabled(this)
+        if (ballOn || adSkipOn) {
+            if (!OverlayService.isRunning) checkNotificationPermissionThenOverlay()
+        } else {
+            if (OverlayService.isRunning) stopService(Intent(this, OverlayService::class.java))
+        }
     }
 
     private fun checkNotificationPermissionThenOverlay() {
@@ -104,30 +121,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestOverlayPermissionIfNeeded() {
         if (Settings.canDrawOverlays(this)) {
-            startOverlayService()
+            val intent = Intent(this, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent)
+            else startService(intent)
         } else {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
+            overlayPermissionLauncher.launch(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             )
-            overlayPermissionLauncher.launch(intent)
         }
     }
 
-    private fun startOverlayService() {
-        val intent = Intent(this, OverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-        updateUI(active = true)
-    }
-
-    private fun stopOverlayService() {
-        stopService(Intent(this, OverlayService::class.java))
-        updateUI(active = false)
-    }
+    // ── UI 更新 ───────────────────────────────────────────────────────
 
     private fun isAdSkipAuthorized(): Boolean {
         val am = getSystemService(AccessibilityManager::class.java)
@@ -136,19 +140,27 @@ class MainActivity : AppCompatActivity() {
                     it.resolveInfo.serviceInfo.name == AdSkipService::class.java.name }
     }
 
-    private fun updateUI(active: Boolean) {
-        if (active) {
-            binding.btnToggle.text = getString(R.string.stop_protection)
+    private fun updateBallUI() {
+        val enabled = OverlayService.isBallEnabled(this)
+        binding.switchBall.setOnCheckedChangeListener(null)
+        binding.switchBall.isChecked = enabled
+        binding.switchBall.setOnCheckedChangeListener { _, isChecked ->
+            OverlayService.setBallEnabled(this, isChecked)
+            if (OverlayService.isRunning) {
+                val action = if (isChecked) OverlayService.ACTION_SHOW_BALL else OverlayService.ACTION_HIDE_BALL
+                startService(Intent(this, OverlayService::class.java).setAction(action))
+            }
+            startOrStopService()
+            updateBallUI()
+        }
+        if (enabled) {
             binding.statusDot.setBackgroundResource(R.drawable.bg_status_active)
-            binding.statusText.text = getString(R.string.status_active)
+            binding.statusText.text = getString(R.string.ball_status_on)
             binding.statusText.setTextColor(ContextCompat.getColor(this, R.color.status_active))
-            binding.hintText.text = getString(R.string.hint_active)
         } else {
-            binding.btnToggle.text = getString(R.string.start_protection)
             binding.statusDot.setBackgroundResource(R.drawable.bg_status_inactive)
-            binding.statusText.text = getString(R.string.status_inactive)
+            binding.statusText.text = getString(R.string.ball_status_off)
             binding.statusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
-            binding.hintText.text = getString(R.string.hint_inactive)
         }
     }
 
@@ -157,21 +169,19 @@ class MainActivity : AppCompatActivity() {
         val prefEnabled = AdSkipService.isAdSkipEnabled(this)
 
         if (!authorized) {
-            // 未授权：显示授权按钮，隐藏开关
-            binding.btnAdSkip.visibility = android.view.View.VISIBLE
-            binding.switchAdSkip.visibility = android.view.View.GONE
+            binding.btnAdSkip.visibility = View.VISIBLE
+            binding.switchAdSkip.visibility = View.GONE
             binding.adSkipDot.setBackgroundResource(R.drawable.bg_status_inactive)
             binding.adSkipStatusText.text = getString(R.string.ad_skip_status_off)
             binding.adSkipStatusText.setTextColor(ContextCompat.getColor(this, R.color.status_inactive))
         } else {
-            // 已授权：显示开关，隐藏授权按钮
-            binding.btnAdSkip.visibility = android.view.View.GONE
-            binding.switchAdSkip.visibility = android.view.View.VISIBLE
-            // 更新开关状态时先移除监听，避免触发 setOnCheckedChangeListener
+            binding.btnAdSkip.visibility = View.GONE
+            binding.switchAdSkip.visibility = View.VISIBLE
             binding.switchAdSkip.setOnCheckedChangeListener(null)
             binding.switchAdSkip.isChecked = prefEnabled
             binding.switchAdSkip.setOnCheckedChangeListener { _, isChecked ->
                 AdSkipService.setAdSkipEnabled(this, isChecked)
+                startOrStopService()
                 updateAdSkipUI()
             }
             if (prefEnabled) {

@@ -74,7 +74,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/protection_card_title"
+                    android:text="@string/ball_card_title"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:fontFamily="sans-serif-medium" />
@@ -97,12 +97,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
-                        android:text="@string/status_inactive"
+                        android:text="@string/ball_status_off"
                         android:textColor="@color/status_inactive"
                         android:textSize="12sp" />
 
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- 悬浮球开关 -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchBall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:thumbTint="@color/white"
+                app:trackTint="@color/accent" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
@@ -204,38 +212,5 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- 提示文字 -->
-    <TextView
-        android:id="@+id/hintText"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="32dp"
-        android:layout_marginTop="20dp"
-        android:gravity="center"
-        android:lineSpacingMultiplier="1.5"
-        android:text="@string/hint_inactive"
-        android:textColor="@color/text_secondary"
-        android:textSize="12sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/adSkipCard" />
-
-    <!-- 主按钮 -->
-    <Button
-        android:id="@+id/btnToggle"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginBottom="48dp"
-        android:backgroundTint="@color/accent"
-        android:text="@string/start_protection"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:fontFamily="sans-serif-medium"
-        android:stateListAnimator="@null"
-        app:cornerRadius="14dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

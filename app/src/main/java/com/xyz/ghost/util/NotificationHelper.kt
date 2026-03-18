@@ -23,7 +23,7 @@ class NotificationHelper(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID, "Ghost 防误触", NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "防误触保护运行中"; setShowBadge(false) }
+            ).apply { description = "后台保护运行中"; setShowBadge(false) }
             context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
@@ -42,8 +42,8 @@ class NotificationHelper(private val context: Context) {
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_shield)
-            .setContentTitle("Ghost 运行中")
-            .setContentText("点击悬浮球开启保护 · 长按 1.5 秒关闭")
+            .setContentTitle("Ghost")
+            .setContentText("后台保护运行中")
             .setContentIntent(openIntent)
             .addAction(0, "停止", stopIntent)
             .setOngoing(true)

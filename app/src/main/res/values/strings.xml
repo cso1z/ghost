@@ -2,14 +2,10 @@
 <resources>
     <string name="app_name">Ghost</string>
     <string name="app_subtitle">防误触保护</string>
-    <string name="start_protection">启动保护</string>
-    <string name="stop_protection">停止保护</string>
-    <string name="status_active">保护中</string>
-    <string name="status_inactive">未启动</string>
-    <string name="hint_active">透明保护层已开启，屏幕触摸已被拦截。\n长按右上角锁图标 1.5 秒可解除保护。</string>
-    <string name="hint_inactive">点击"启动保护"后，应用将在屏幕上方添加一个透明层，拦截所有误触操作。</string>
     <string name="unlock_hint">长按解锁</string>
-    <string name="protection_card_title">误触保护</string>
+    <string name="ball_card_title">悬浮球</string>
+    <string name="ball_status_on">已显示</string>
+    <string name="ball_status_off">已隐藏</string>
     <string name="ad_skip_card_title">自动跳广告</string>
     <string name="ad_skip_status_on">已开启 · 监听 YouTube</string>
     <string name="ad_skip_status_paused">已授权 · 已暂停</string>

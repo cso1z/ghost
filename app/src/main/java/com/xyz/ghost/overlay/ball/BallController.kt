@@ -73,7 +73,8 @@ class BallController(
             isAdSkipAuthorized = isAdSkipAuthorized,
             isAdSkipEnabled = isAdSkipEnabled,
             onLockClick = { onMiniLockClick() },
-            onAdSkipClick = { onMiniAdSkipClick() }
+            onAdSkipClick = { onMiniAdSkipClick() },
+            onDismiss = { scheduleHide() }
         )
     }
 
@@ -99,7 +100,7 @@ class BallController(
             y = context.dpToPx(120)
         }
 
-        setupTouch(icon, progressRing, params)
+        setupTouch(view, icon, progressRing, params)
         windowManager.addView(view, params)
         ballView = view
         ballParams = params
@@ -120,7 +121,7 @@ class BallController(
 
     // ── 触摸处理 ─────────────────────────────────────────────────────
 
-    private fun setupTouch(icon: ImageView, progressRing: View, params: WindowManager.LayoutParams) {
+    private fun setupTouch(rootView: View, icon: ImageView, progressRing: View, params: WindowManager.LayoutParams) {
         var wasHiddenOnDown = false
         var isDragging = false
         var touchStartX = 0f
@@ -135,6 +136,8 @@ class BallController(
         icon.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    if (miniMenu.isOpen) miniMenu.pauseAutoDismiss()
+
                     wasHiddenOnDown = isHidden
                     isDragging = false
                     touchStartX = event.rawX
@@ -144,7 +147,6 @@ class BallController(
                     paramStartX = params.x
                     paramStartY = params.y
 
-                    if (miniMenu.isOpen) miniMenu.pauseAutoDismiss()
                     cancelHide()
                     if (isHidden) revealBall() else animator.animateBallX(pos.revealedX(snappedToLeft), REVEAL_DURATION)
 
@@ -193,7 +195,7 @@ class BallController(
                             held >= UNLOCK_HOLD_MS -> playUnlockSuccess(icon, progressRing)
                             wasHiddenOnDown -> scheduleHide()
                             !protection.isActive && !isSuccessAnimating -> {
-                                if (miniMenu.isOpen) { miniMenu.hide(animate = true); scheduleHide() }
+                                if (miniMenu.isOpen) { miniMenu.hide(animate = true) } // → onDismiss → scheduleHide
                                 else showMenu(params)
                             }
                             else -> scheduleHide()
@@ -210,15 +212,13 @@ class BallController(
     // ── 菜单回调 ─────────────────────────────────────────────────────
 
     private fun onMiniLockClick() {
-        miniMenu.hide(animate = false)
+        miniMenu.hide(animate = false)  // → onDismiss → scheduleHide
         activateProtection()
-        scheduleHide()
     }
 
     private fun onMiniAdSkipClick() {
         onAdSkipToggle()
-        miniMenu.hide(animate = true)
-        scheduleHide()
+        miniMenu.hide(animate = true)   // → onDismiss → scheduleHide
     }
 
     // ── 保护层 ───────────────────────────────────────────────────────

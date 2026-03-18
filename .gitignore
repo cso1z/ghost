@@ -17,6 +17,6 @@ local.properties
 .externalNativeBuild/
 .cxx/
 
-# Keystore / secrets
-*.jks
-*.keystore
+# Keystore / secrets (ghost.jks is intentionally tracked)
+# *.jks
+# *.keystore
