@@ -53,6 +53,9 @@ class AdSkipService : AccessibilityService() {
     private var lastScanMs = 0L
     private val SCAN_INTERVAL_MS = 500L
 
+    // 运行时学习到的跳过按钮 viewId，下次优先用 id 直接查找
+    private val learnedSkipIds = mutableSetOf<String>()
+
     override fun onServiceConnected() {
         isRunning = true
         serviceInfo = serviceInfo.apply {
@@ -132,7 +135,15 @@ class AdSkipService : AccessibilityService() {
     }
 
     private fun trySkip(root: AccessibilityNodeInfo): Boolean {
-        // 优先按 viewId 查找（更精准）
+        // 第一优先：运行时学到的 id（上次文本命中后记录的）
+        for (id in learnedSkipIds) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(id)
+            for (node in nodes) {
+                Log.d(TAG, "learned-id match: id=$id visible=${node.isVisibleToUser} clickable=${node.isClickable}")
+                if (clickNode(node)) return true
+            }
+        }
+        // 第二优先：硬编码已知 id
         for (id in SKIP_IDS) {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
             if (nodes.isEmpty()) {
@@ -143,15 +154,22 @@ class AdSkipService : AccessibilityService() {
                 if (clickNode(node)) return true
             }
         }
-        // 按文本查找（兜底）
+        // 兜底：按文本查找，命中后记录该节点的 viewId 供下次使用
         for (text in SKIP_TEXTS) {
             val nodes = root.findAccessibilityNodeInfosByText(text)
             for (node in nodes) {
-                Log.d(TAG, "text match: \"$text\" visible=${node.isVisibleToUser} clickable=${node.isClickable} id=${node.viewIdResourceName} class=${node.className}")
-                if (clickNode(node)) return true
+                val nodeId = node.viewIdResourceName
+                Log.d(TAG, "text match: \"$text\" visible=${node.isVisibleToUser} clickable=${node.isClickable} id=$nodeId class=${node.className}")
+                if (clickNode(node)) {
+                    if (!nodeId.isNullOrEmpty() && nodeId !in SKIP_IDS) {
+                        learnedSkipIds.add(nodeId)
+                        Log.i(TAG, "learned new skip id: $nodeId (total learned=${learnedSkipIds.size})")
+                    }
+                    return true
+                }
             }
         }
-        // ④ 都没找到时，dump 根节点第一层子节点帮助定位
+        // 都没找到时 dump 根节点前 5 个子节点帮助定位
         Log.d(TAG, "root childCount=${root.childCount} pkg=${root.packageName} class=${root.className}")
         for (i in 0 until minOf(root.childCount, 5)) {
             val child = root.getChild(i) ?: continue
