@@ -58,30 +58,56 @@ class AdSkipService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (!isAdSkipEnabled(this)) return
-        if (event.packageName != "com.google.android.youtube") return
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastClickMs < CLICK_COOLDOWN_MS) return
+        val pkg = event.packageName?.toString()
+        val type = AccessibilityEvent.eventTypeToString(event.eventType)
 
-        // 快速预检：仅当触发节点文本命中跳过关键词，或界面发生整体切换时，才获取完整节点树
+        // ① 记录所有收到的事件（排除非 YouTube 前先打印，便于确认事件在流动）
+        if (pkg != "com.google.android.youtube") {
+            Log.v(TAG, "event from other pkg=$pkg type=$type [skip]")
+            return
+        }
+
+        if (!isAdSkipEnabled(this)) {
+            Log.d(TAG, "YouTube event received but ad-skip disabled, type=$type")
+            return
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastClickMs < CLICK_COOLDOWN_MS) {
+            Log.v(TAG, "cooldown active, skip event type=$type")
+            return
+        }
+
+        // ② 预检：记录事件文本内容
         val needFullScan = when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> true
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                Log.d(TAG, "WINDOW_STATE_CHANGED → full scan")
+                true
+            }
             else -> {
-                val text = event.source?.text?.toString()
-                    ?: event.contentDescription?.toString()
-                    ?: ""
+                val srcText = event.source?.text?.toString() ?: ""
+                val descText = event.contentDescription?.toString() ?: ""
+                val text = srcText.ifEmpty { descText }
                 val hit = SKIP_TEXTS.any { text.contains(it, ignoreCase = true) }
-                if (hit) Log.d(TAG, "pre-check hit: \"$text\"")
+                Log.d(TAG, "event type=$type text=\"$text\" hit=$hit")
                 hit
             }
         }
         if (!needFullScan) return
 
-        val root = rootInActiveWindow ?: return
+        // ③ 获取根节点
+        val root = rootInActiveWindow
+        if (root == null) {
+            Log.w(TAG, "rootInActiveWindow is null")
+            return
+        }
         try {
-            if (trySkip(root)) {
+            val found = trySkip(root)
+            if (found) {
                 lastClickMs = now
-                Log.i(TAG, "skip ad clicked")
+                Log.i(TAG, "✅ skip ad clicked")
+            } else {
+                Log.w(TAG, "❌ no skip button found in window")
             }
         } finally {
             root.recycle()
@@ -92,8 +118,11 @@ class AdSkipService : AccessibilityService() {
         // 优先按 viewId 查找（更精准）
         for (id in SKIP_IDS) {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
+            if (nodes.isEmpty()) {
+                Log.d(TAG, "id search: no nodes for id=$id")
+            }
             for (node in nodes) {
-                Log.d(TAG, "found skip node by id: $id visible=${node.isVisibleToUser} clickable=${node.isClickable}")
+                Log.d(TAG, "id match: id=$id text=\"${node.text}\" visible=${node.isVisibleToUser} clickable=${node.isClickable} class=${node.className}")
                 if (clickNode(node)) return true
             }
         }
@@ -101,9 +130,16 @@ class AdSkipService : AccessibilityService() {
         for (text in SKIP_TEXTS) {
             val nodes = root.findAccessibilityNodeInfosByText(text)
             for (node in nodes) {
-                Log.d(TAG, "found skip node by text: \"$text\" visible=${node.isVisibleToUser} clickable=${node.isClickable}")
+                Log.d(TAG, "text match: \"$text\" visible=${node.isVisibleToUser} clickable=${node.isClickable} id=${node.viewIdResourceName} class=${node.className}")
                 if (clickNode(node)) return true
             }
+        }
+        // ④ 都没找到时，dump 根节点第一层子节点帮助定位
+        Log.d(TAG, "root childCount=${root.childCount} pkg=${root.packageName} class=${root.className}")
+        for (i in 0 until minOf(root.childCount, 5)) {
+            val child = root.getChild(i) ?: continue
+            Log.d(TAG, "  root.child[$i] class=${child.className} id=${child.viewIdResourceName} text=\"${child.text}\" desc=\"${child.contentDescription}\"")
+            child.recycle()
         }
         return false
     }
@@ -112,17 +148,25 @@ class AdSkipService : AccessibilityService() {
      * 点击节点：优先点击自身，若不可点击则向上找可点击的父节点（最多 3 层）
      */
     private fun clickNode(node: AccessibilityNodeInfo): Boolean {
-        if (!node.isVisibleToUser) return false
+        if (!node.isVisibleToUser) {
+            Log.d(TAG, "clickNode: not visible, skip")
+            return false
+        }
         var target: AccessibilityNodeInfo? = node
+        var depth = 0
         repeat(3) {
             target?.let {
+                Log.d(TAG, "clickNode depth=$depth class=${it.className} clickable=${it.isClickable}")
                 if (it.isClickable) {
-                    it.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    return true
+                    val ok = it.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    Log.i(TAG, "performAction(ACTION_CLICK) result=$ok depth=$depth")
+                    return ok
                 }
                 target = it.parent
+                depth++
             }
         }
+        Log.w(TAG, "clickNode: no clickable ancestor found within 3 levels")
         return false
     }
 
